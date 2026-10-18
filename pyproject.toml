@@ -1,0 +1,129 @@
+# =============================================================================
+#  CALHYSTO — Full-wave FEM solver for Lower Hybrid antenna coupling
+# =============================================================================
+#  Installation:   uv python install 3.14
+#                  uv sync
+#  Dependencies are kept minimal on purpose: a package is added only when the
+#  code actually uses it.
+# =============================================================================
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+
+# -----------------------------------------------------------------------------
+#  Project metadata (PEP 621)
+# -----------------------------------------------------------------------------
+[project]
+name = "calhysto"
+version = "0.1.0"
+description = "Full-wave 2D/3D finite-element solver for lower hybrid wave coupling in tokamak edge plasmas"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.14"
+authors = [{ name = "Rémi Bellon", email = "remi.bellon0@gmail.com" }]
+keywords = [
+    "plasma-physics",
+    "lower-hybrid",
+    "finite-element",
+    "maxwell",
+    "tokamak",
+    "rf-antenna",
+    "full-wave",
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+
+dependencies = [
+    # NGSolve: meshing (Netgen), assembly and solution of the FEM problem.
+    # 6.2.2608 was checked (2026-10) to ship cp314 wheels for macOS
+    # (universal2) and Linux x86-64, and to depend on OpenBLAS instead of
+    # Intel MKL. Do NOT add an upper bound: it would block future cp3xx wheels.
+    "ngsolve>=6.2.2608",
+    # Arrays exchanged with NGSolve (also a dependency of NGSolve itself).
+    "numpy>=2.3",
+]
+
+
+# -----------------------------------------------------------------------------
+#  Development tools (PEP 735) — installed by default by `uv sync`
+# -----------------------------------------------------------------------------
+[dependency-groups]
+dev = [
+    "pytest>=9.0",
+    "ruff>=0.17",
+]
+
+
+# -----------------------------------------------------------------------------
+#  uv — resolve only for the platforms actually supported
+# -----------------------------------------------------------------------------
+[tool.uv]
+environments = [
+    "sys_platform == 'darwin'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+package = true
+
+
+# -----------------------------------------------------------------------------
+#  Hatchling — flat layout (package folder at the repository root)
+# -----------------------------------------------------------------------------
+[tool.hatch.build.targets.wheel]
+packages = ["calhysto"]
+
+
+# -----------------------------------------------------------------------------
+#  Ruff — lint + format
+# -----------------------------------------------------------------------------
+[tool.ruff]
+line-length = 88
+target-version = "py314"
+src = [".", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",   # pycodestyle
+    "F",   # pyflakes
+    "I",   # isort (import order)
+    "B",   # bugbear (common pitfalls)
+    "UP",  # pyupgrade (modern syntax)
+    "NPY", # NumPy-specific rules
+    "D",   # docstrings
+    "RUF", # Ruff-specific rules
+]
+ignore = [
+    "E741", # variables named l, I, O: common in physics (l = mode index)
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D"]         # no mandatory docstrings in tests
+"main.py" = ["D", "E402"] # the driver is a script, not a module
+
+
+# -----------------------------------------------------------------------------
+#  pytest
+# -----------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers -ra"
+markers = [
+    "slow: heavy cases (fine mesh, 3D), excluded with -m 'not slow'",
+    "convergence: convergence-order study (MMS), potentially long",
+    "physics: physical validation against an analytical or published reference",
+]
+# Deprecations become errors so that an API change in NGSolve or NumPy is
+# noticed immediately instead of silently changing results.
+filterwarnings = ["error::DeprecationWarning"]

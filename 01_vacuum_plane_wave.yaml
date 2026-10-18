@@ -1,0 +1,82 @@
+# =============================================================================
+#  CALHYSTO — configuration de simulation
+#  Cas 01 : onde plane monochromatique en 2D, milieu vide, PML actives.
+#  Étape 1a/1b de la feuille de route.
+# =============================================================================
+#  Toutes les grandeurs sont en unités SI.
+#  Convention temporelle : exp(-i*omega*t).
+# =============================================================================
+
+case_name: vacuum_plane_wave
+description: >
+  Onde plane monochromatique injectée dans un domaine vide 2D, guides d'onde
+  supposés infinis dans la direction verticale. Sert à vérifier l'ordre de
+  convergence des éléments de Nédélec et l'absorption des PML.
+
+
+# --- Source ------------------------------------------------------------------
+source:
+  type: plane_wave              # plane_wave | wave_packet | waveguide_modes
+  frequency: 3.7e9              # [Hz]  fréquence LH de WEST
+  n_parallel: 2.0               # [-]   indice parallèle imposé
+  amplitude: 1.0                # [V/m]
+
+
+# --- Géométrie ---------------------------------------------------------------
+geometry:
+  kind: slab_2d                 # slab_2d | grill_2d
+  x_range: [0.0, 0.20]          # [m]   direction radiale (vers le plasma)
+  z_range: [-0.10, 0.10]        # [m]   direction parallèle au champ magnétique
+
+
+# --- Milieu ------------------------------------------------------------------
+plasma:
+  model: vacuum                 # vacuum | uniform | linear_gradient | tabulated
+  magnetic_field: 3.7           # [T]   norme de B0
+  # Champs utilisés par les autres modèles, ignorés ici :
+  # density: 1.0e17             # [m^-3]  (model: uniform)
+  # density_at_wall: 1.0e16     # [m^-3]  (model: linear_gradient)
+  # gradient_length: 0.01       # [m]     (model: linear_gradient)
+  # profile_file: data/west_reflectometry_54321.nc   # (model: tabulated)
+
+
+# --- Couches absorbantes -----------------------------------------------------
+pml:
+  enabled: true
+  kind: bermudez                # bermudez | collisional | none
+  thickness: 0.02               # [m]   épaisseur de la couche
+
+  # ⚠ Le signe de l'étirement est DIRECTIONNEL.
+  #   L'onde lente LH est forward en direction parallèle  -> delta > 0
+  #   L'onde lente LH est backward en direction radiale   -> delta < 0
+  #   Une PML isotrope unique est instable dans ce régime.
+  delta_parallel: +1.0
+  delta_radial: -1.0
+
+  # Utilisé uniquement si kind: collisional (repli robuste, non reflectionless)
+  # nu_eff_max: 0.05            # [-] nu_eff / omega en bord de couche
+
+
+# --- Maillage ----------------------------------------------------------------
+mesh:
+  elements_per_wavelength: 10   # résolution cible, longueur d'onde LOCALE
+  order: 3                      # ordre des éléments d'arête de Nédélec
+  adaptive: false               # étape 3 de la feuille de route
+  # max_refinement_levels: 4
+  # error_tolerance: 1.0e-3
+
+
+# --- Solveur -----------------------------------------------------------------
+solver:
+  linear_solver: umfpack        # umfpack (défaut) | pardiso
+  # ⚠ sparsecholesky est INTERDIT : la matrice est complexe non hermitienne
+  #   (tenseur de Stix gyrotrope). Il suppose la symétrie et renverrait un
+  #   résultat faux sans lever d'erreur.
+
+
+# --- Sorties -----------------------------------------------------------------
+output:
+  save_fields: true             # fields.nc  (xarray -> netCDF)
+  save_mesh: true               # mesh.vtu   (ParaView / PyVista)
+  # Les figures ne sont PAS générées ici : elles se produisent a posteriori
+  # depuis main.py via plotting.*, à partir du dossier de résultats.
